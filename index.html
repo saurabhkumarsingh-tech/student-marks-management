@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Student Marks Management</title>
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--ink:#14281f;--mut:#5d6f66;--line:#d5dfd9;--acc:#1f6f4a;--accbg:#e2f1e9;--bad:#b3261e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a15;--card:#17251e;--ink:#e6f0ea;--mut:#98ada2;--line:#2b3f34;--acc:#5fcf9b;--accbg:#1d3a2c;--bad:#ff8a80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1a15;--card:#17251e;--ink:#e6f0ea;--mut:#98ada2;--line:#2b3f34;--acc:#5fcf9b;--accbg:#1d3a2c;--bad:#ff8a80;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 14px 40px}
+h1{font:700 26px/1.2 Georgia,"Times New Roman",serif;margin:0 0 4px}
+h2{font:600 17px Georgia,serif;margin:0 0 10px}
+p.sub{margin:0 0 18px;color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+input,select,textarea{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+input.m{width:70px}input.n{width:160px}input.r{width:80px}
+button{font:inherit;font-weight:600;padding:8px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--card);border-radius:6px;cursor:pointer}
+button.o{background:transparent;color:var(--acc)}
+button.d{background:transparent;border-color:var(--bad);color:var(--bad);padding:4px 9px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:var(--accbg);border-radius:8px;padding:10px 12px}
+.stat b{display:block;font-size:20px}.stat span{font-size:12px;color:var(--mut)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:620px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:12px;color:var(--mut)}
+.pass{color:var(--acc);font-weight:600}.fail{color:var(--bad);font-weight:600}
+pre{margin:0;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow-x:auto;font:12.5px/1.5 Consolas,monospace}
+textarea{width:100%;min-height:110px;font:12.5px/1.5 Consolas,monospace}
+#msg{min-height:20px;margin:6px 0 0;font-size:13px;color:var(--mut)}
+.empty{color:var(--mut);padding:14px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Student Marks Management</h1>
+<p class="sub">Lists, tuples, dictionaries aur file processing se bana basic project.</p>
+
+<section class="card">
+<h2>Add student</h2>
+<div class="row" id="form"></div>
+<p id="msg" role="status"></p>
+</section>
+
+<section class="card">
+<h2>Class summary</h2>
+<div class="stats" id="stats"></div>
+</section>
+
+<section class="card">
+<div class="row" style="justify-content:space-between;margin-bottom:8px">
+<h2 style="margin:0">Student records</h2>
+<div class="row">
+<label>Search<input id="q" placeholder="Name or roll no"></label>
+<label>Sort by<select id="sort"><option value="roll">Roll no</option><option value="name">Name</option><option value="total">Total (high to low)</option></select></label>
+</div></div>
+<div class="scroll"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+<div id="empty" class="empty" hidden>Abhi koi student nahi hai. Upar se pehla student add karo.</div>
+</section>
+
+<section class="card">
+<h2>File processing (marks.txt)</h2>
+<p class="sub" style="margin-bottom:8px">Data "file" me line-by-line save hota hai: roll,name,m1,m2,m3,m4,m5. Browser me save hota hai, aur text file se import bhi kar sakte ho.</p>
+<textarea id="file" spellcheck="false" aria-label="marks.txt content"></textarea>
+<div class="row" style="margin-top:8px">
+<button id="save">Save to file</button>
+<button class="o" id="load">Load from file</button>
+<button class="o" id="apply">Import from text above</button>
+<label style="color:var(--acc)">Upload .txt<input type="file" id="up" accept=".txt,.csv"></label>
+</div>
+</section>
+
+<section class="card">
+<h2>Data structures in use</h2>
+<pre id="ds"></pre>
+</section>
+</main>
+<script>
+// TUPLE (immutable): subject names are fixed, so a tuple is used (JS: frozen array)
+const SUBJECTS = Object.freeze(["Maths","Physics","Chemistry","English","Computer"]);
+// LIST of DICTIONARIES: each student is a dict; marks is a tuple of 5 values
+let students = [];
+const KEY = "marks.txt";
+const $ = id => document.getElementById(id);
+
+// build form
+$("form").innerHTML =
+ '<label>Roll no<input class="r" id="roll"></label><label>Name<input class="n" id="name"></label>' +
+ SUBJECTS.map((s,i)=>`<label>${s}<input class="m" type="number" min="0" max="100" id="m${i}"></label>`).join("") +
+ '<button id="add">Add student</button>';
+$("thead").innerHTML = "<tr><th>Roll</th><th>Name</th>" + SUBJECTS.map(s=>`<th>${s}</th>`).join("") + "<th>Total</th><th>%</th><th>Grade</th><th>Result</th><th></th></tr>";
+
+const total = s => s.marks.reduce((a,b)=>a+b,0);
+const pct = s => total(s)/SUBJECTS.length;
+const grade = p => p>=90?"A+":p>=80?"A":p>=70?"B":p>=60?"C":p>=40?"D":"F";
+const passed = s => s.marks.every(m=>m>=40);
+const note = (t,bad) => { $("msg").textContent = t; $("msg").style.color = bad ? "var(--bad)" : "var(--mut)"; };
+const esc = t => String(t).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toText(){ return students.map(s=>[s.roll,s.name,...s.marks].join(",")).join("\n"); }
+function fromText(t){
+  const out = [];
+  for (const line of t.split(/\r?\n/)) {
+    const p = line.split(",").map(x=>x.trim());
+    if (p.length !== 2 + SUBJECTS.length || !p[0] || !p[1]) continue;
+    const m = p.slice(2).map(Number);
+    if (m.some(x=>isNaN(x)||x<0||x>100)) continue;
+    if (out.some(s=>s.roll===p[0])) continue;
+    out.push({roll:p[0], name:p[1], marks:Object.freeze(m)});
+  }
+  return out;
+}
+function save(){ try{ localStorage.setItem(KEY, toText()); note("Saved to marks.txt"); }catch(e){ note("Browser storage available nahi hai.", true); } }
+function loadFile(){ try{ const t = localStorage.getItem(KEY); if(t){ students = fromText(t); } }catch(e){} }
+
+function render(){
+  const q = $("q").value.toLowerCase(), by = $("sort").value;
+  let list = students.filter(s=>s.name.toLowerCase().includes(q)||s.roll.toLowerCase().includes(q));
+  list.sort((a,b)=> by==="total" ? total(b)-total(a) : String(a[by]).localeCompare(String(b[by]),undefined,{numeric:true}));
+  $("tbody").innerHTML = list.map(s=>{
+    const p = pct(s);
+    return `<tr><td>${esc(s.roll)}</td><td>${esc(s.name)}</td>${s.marks.map(m=>`<td>${m}</td>`).join("")}<td>${total(s)}</td><td>${p.toFixed(1)}</td><td>${grade(p)}</td><td class="${passed(s)?"pass":"fail"}">${passed(s)?"Pass":"Fail"}</td><td><button class="d" data-r="${esc(s.roll)}" aria-label="Delete ${esc(s.name)}">Delete</button></td></tr>`;
+  }).join("");
+  $("empty").hidden = students.length > 0;
+  $("thead").parentElement.hidden = students.length === 0;
+  const n = students.length;
+  const top = n ? students.reduce((a,b)=>total(b)>total(a)?b:a) : null;
+  const avg = n ? students.reduce((a,s)=>a+pct(s),0)/n : 0;
+  const np = students.filter(passed).length;
+  $("stats").innerHTML = [["Students",n],["Class average",avg.toFixed(1)+"%"],["Topper",top?esc(top.name)+" ("+total(top)+")":"-"],["Pass / Fail",np+" / "+(n-np)]]
+    .map(([l,v])=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  $("file").value = toText();
+  const ex = students[0];
+  $("ds").textContent =
+`SUBJECTS = ${JSON.stringify(SUBJECTS).replace(/\[/,"(").replace(/\]$/,")")}   # tuple
+students = [                                   # list
+  ${ex ? `{"roll": "${ex.roll}", "name": "${ex.name}", "marks": (${ex.marks.join(", ")})},   # dict` : "# add a student to see a dict here"}
+  ${n>1 ? "... " + (n-1) + " more" : ""}
+]`;
+}
+
+$("add").onclick = () => {
+  const roll = $("roll").value.trim(), name = $("name").value.trim();
+  const marks = SUBJECTS.map((_,i)=>$("m"+i).value === "" ? NaN : Number($("m"+i).value));
+  if (!roll || !name) return note("Roll no aur name dono bharo.", true);
+  if (marks.some(m=>isNaN(m)||m<0||m>100)) return note("Marks 0 se 100 ke beech hone chahiye.", true);
+  if (students.some(s=>s.roll===roll)) return note("Ye roll no pehle se hai.", true);
+  students.push({roll, name, marks:Object.freeze(marks)});
+  ["roll","name",...SUBJECTS.map((_,i)=>"m"+i)].forEach(id=>$(id).value="");
+  save(); render(); note("Student added.");
+};
+$("tbody").onclick = e => {
+  const r = e.target.dataset && e.target.dataset.r;
+  if (r === undefined) return;
+  students = students.filter(s=>s.roll!==r); save(); render(); note("Student deleted.");
+};
+$("q").oninput = render; $("sort").onchange = render;
+$("save").onclick = save;
+$("load").onclick = () => { loadFile(); render(); note("File se data load hua."); };
+$("apply").onclick = () => { students = fromText($("file").value); save(); render(); note(students.length + " valid record(s) imported."); };
+$("up").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { students = fromText(String(rd.result)); save(); render(); note(students.length + " record(s) file se import hue."); };
+  rd.readAsText(f);
+};
+
+loadFile();
+if (!students.length) students = fromText("101,Aarav,78,85,72,80,91\n102,Diya,92,88,95,90,97\n103,Kabir,35,48,52,60,44");
+render();
+</script>
+</body>
+</html>
